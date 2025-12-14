@@ -1,13 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Movement Hub</title>
 
+<!-- React (UMD – NO MODULES) -->
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<!-- Socket.IO -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-<script src="https://cdn.skypack.dev/react@18.2.0"></script>
-<script src="https://cdn.skypack.dev/react-dom@18.2.0"></script>
 
 <style>
 body{margin:0;overflow:hidden;font-family:sans-serif}
@@ -23,29 +26,34 @@ input{padding:6px;border-radius:6px;border:none}
 <body>
 <div id="root"></div>
 
-<script type="module">
-const {useState,useEffect,useRef} = React;
-
+<script>
+const { useState, useEffect, useRef } = React;
 const socket = io("http://localhost:3000"); // CHANGE WHEN DEPLOYED
 
 function App(){
   const [username,setUsername]=useState(localStorage.getItem("username"));
   const [input,setInput]=useState("");
   const [players,setPlayers]=useState({});
-  const [chat,setChat]=useState({});
+  const [chats,setChats]=useState({});
+
   const keys=useRef({});
   const pos=useRef({x:200,y:200});
   const vel=useRef({x:0,y:0});
 
+  // Socket listeners
   useEffect(()=>{
-    socket.on("state",setPlayers);
+    socket.on("state",state=>{
+      setPlayers({...state});
+    });
     socket.on("chat",msg=>{
-      setChat(c=>({...c,[msg.id]:msg}));
+      setChats(c=>({...c,[msg.id]:msg}));
     });
   },[]);
 
+  // Join + movement loop
   useEffect(()=>{
     if(!username) return;
+
     socket.emit("join",{username,character:"aurababy"});
 
     const down=e=>keys.current[e.key]=true;
@@ -53,6 +61,7 @@ function App(){
     window.addEventListener("keydown",down);
     window.addEventListener("keyup",up);
 
+    let raf;
     const loop=()=>{
       let dx=0,dy=0;
       if(keys.current.w)dy--;
@@ -63,11 +72,14 @@ function App(){
       pos.current.x+=vel.current.x;
       pos.current.y+=vel.current.y;
       socket.emit("move",{...pos.current,...vel.current});
-      requestAnimationFrame(loop);
+      raf=requestAnimationFrame(loop);
     };
-    loop();
+    raf=requestAnimationFrame(loop);
+
+    return()=>cancelAnimationFrame(raf);
   },[username]);
 
+  // Login screen
   if(!username){
     return React.createElement("div",{className:"screen"},
       React.createElement("form",{style:{padding:40},onSubmit:e=>{
@@ -81,6 +93,7 @@ function App(){
     );
   }
 
+  // Game screen
   return React.createElement("div",{className:"screen"},
     Object.values(players).map(p=>
       React.createElement(React.Fragment,{key:p.id},
@@ -88,8 +101,8 @@ function App(){
           React.createElement("img",{src:"https://i.ibb.co/nq467xv6/aurababy.png",width:48})
         ),
         React.createElement("div",{className:"username",style:{left:p.x+24,top:p.y+56}},p.username),
-        chat[p.id] && Date.now()-chat[p.id].time<4000 &&
-          React.createElement("div",{className:"chat",style:{left:p.x+24,top:p.y-10}},chat[p.id].text)
+        chats[p.id] && Date.now()-chats[p.id].time<4000 &&
+          React.createElement("div",{className:"chat",style:{left:p.x+24,top:p.y-10}},chats[p.id].text)
       )
     ),
     React.createElement("div",{className:"hud"},
@@ -103,7 +116,8 @@ function App(){
   );
 }
 
-ReactDOM.render(React.createElement(App),root);
+ReactDOM.createRoot(document.getElementById("root"))
+  .render(React.createElement(App));
 </script>
 </body>
 </html>
