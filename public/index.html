@@ -170,7 +170,10 @@ function MovementHub() {
   );
 }
 
-ReactDOM.render(<MovementHub/>,document.getElementById("root"));
+ReactDOM.render(
+  React.createElement(MovementHub),
+  document.getElementById("root")
+);
 </script>
 </body>
 </html>
