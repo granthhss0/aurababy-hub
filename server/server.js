@@ -4,45 +4,37 @@ import { Server } from "socket.io";
 
 const app = express();
 const server = http.createServer(app);
+
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: "https://aurababy-hub.onrender.com",
+    methods: ["GET", "POST"]
+  }
 });
 
 const players = {};
 
-io.on("connection", socket => {
-  socket.emit("state", players);
-
-  socket.on("join", data => {
+io.on("connection", (socket) => {
+  socket.on("join", (data) => {
     players[socket.id] = {
       id: socket.id,
       username: data.username,
-      character: data.character,
       x: 200,
       y: 200,
-      vx: 0,
-      vy: 0
+      character: data.character,
+      admin: data.admin || false
     };
   });
 
-  socket.on("move", data => {
-    const p = players[socket.id];
-    if (!p) return;
-    p.x = data.x;
-    p.y = data.y;
-    p.vx = data.vx;
-    p.vy = data.vy;
+  socket.on("move", ({ x, y }) => {
+    if (!players[socket.id]) return;
+    players[socket.id].x = x;
+    players[socket.id].y = y;
   });
 
-  socket.on("chat", text => {
-    const p = players[socket.id];
-    if (!p) return;
-    io.emit("chat", {
-      id: socket.id,
-      username: p.username,
-      text,
-      time: Date.now()
-    });
+  socket.on("character", (character) => {
+    if (!players[socket.id]) return;
+    players[socket.id].character = character;
   });
 
   socket.on("disconnect", () => {
@@ -50,10 +42,11 @@ io.on("connection", socket => {
   });
 });
 
+// broadcast state ~30fps
 setInterval(() => {
   io.emit("state", players);
-}, 50);
+}, 33);
 
-server.listen(3000, () => {
-  console.log("Socket server on :3000");
+server.listen(process.env.PORT || 3000, () => {
+  console.log("Socket server running");
 });
