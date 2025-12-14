@@ -5,163 +5,135 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <title>Movement Hub</title>
 
-<!-- SOCKET.IO -->
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-
-<!-- REACT (NO JSX) -->
-<script type="module">
-import React from "https://cdn.skypack.dev/react@18.2.0";
-import ReactDOM from "https://cdn.skypack.dev/react-dom@18.2.0";
-
-const { useState, useEffect, useRef } = React;
-
-/* ================= SOCKET ================= */
-const socket = io("https://aurababy-hub0.onrender.com", {
-  transports: ["websocket"]
-});
-
-/* ================= APP ================= */
-function MovementHub() {
-  const [username, setUsername] = useState(null);
-  const [inputUsername, setInputUsername] = useState("");
-  const [error, setError] = useState("");
-  const [position, setPosition] = useState({ x: 200, y: 200 });
-  const [players, setPlayers] = useState({});
-  const [selectedCharacter, setSelectedCharacter] = useState("aurababy");
-
-  const keys = useRef({});
-  const raf = useRef(null);
-
-  const SPEED = 4;
-
-  const characters = {
-    aurababy: "https://i.ibb.co/nq467xv6/aurababy.png",
-    goonerbaby: "https://i.ibb.co/ZRPGHj01/goonerbaby.png",
-    fattiebaby: "https://i.ibb.co/Kj0gKt2Q/fattiebaby.png",
-    zoely: "https://i.ibb.co/PsXr9KgX/zoely.png"
-  };
-
-  /* ========== LOGIN ========== */
-  function submitUsername(e) {
-    e.preventDefault();
-    const u = inputUsername.trim();
-    if (u.length < 3) return setError("Username too short");
-    setUsername(u);
-
-    socket.emit("join", {
-      username: u,
-      character: selectedCharacter
-    });
-  }
-
-  /* ========== MOVEMENT LOOP ========== */
-  useEffect(() => {
-    if (!username) return;
-
-    function down(e) {
-      keys.current[e.key.toLowerCase()] = true;
-    }
-    function up(e) {
-      keys.current[e.key.toLowerCase()] = false;
-    }
-
-    function loop() {
-      setPosition(p => {
-        let dx = 0, dy = 0;
-        if (keys.current.w || keys.current.arrowup) dy -= SPEED;
-        if (keys.current.s || keys.current.arrowdown) dy += SPEED;
-        if (keys.current.a || keys.current.arrowleft) dx -= SPEED;
-        if (keys.current.d || keys.current.arrowright) dx += SPEED;
-
-        const nx = Math.max(0, Math.min(window.innerWidth - 48, p.x + dx));
-        const ny = Math.max(0, Math.min(window.innerHeight - 48, p.y + dy));
-
-        socket.emit("move", { x: nx, y: ny });
-        return { x: nx, y: ny };
-      });
-
-      raf.current = requestAnimationFrame(loop);
-    }
-
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    raf.current = requestAnimationFrame(loop);
-
-    return () => {
-      window.removeEventListener("keydown", down);
-      window.removeEventListener("keyup", up);
-      cancelAnimationFrame(raf.current);
-    };
-  }, [username]);
-
-  /* ========== RECEIVE STATE ========== */
-  useEffect(() => {
-    socket.on("state", serverPlayers => {
-      setPlayers(serverPlayers || {});
-    });
-    return () => socket.off("state");
-  }, []);
-
-  /* ========== LOGIN SCREEN ========== */
-  if (!username) {
-    return React.createElement("div", { className: "screen center-container" },
-      React.createElement("form", { onSubmit: submitUsername, className: "welcome-box" },
-        React.createElement("h1", { className: "title" }, "Welcome"),
-        React.createElement("input", {
-          className: "input",
-          placeholder: "Username",
-          value: inputUsername,
-          onChange: e => setInputUsername(e.target.value)
-        }),
-        error && React.createElement("div", { className: "error" }, error),
-        React.createElement("button", { className: "button" }, "Enter")
-      )
-    );
-  }
-
-  /* ========== GAME ========== */
-  return React.createElement("div", { className: "screen" },
-    Object.entries(players).map(([id, p]) =>
-      React.createElement(React.Fragment, { key: id },
-        React.createElement("div", {
-          className: "player",
-          style: { left: p.x + "px", top: p.y + "px" }
-        },
-          React.createElement("img", {
-            src: characters[p.character] || characters.aurababy,
-            style: { width: "100%", height: "100%" }
-          })
-        ),
-        React.createElement("div", {
-          className: "username-label",
-          style: { left: (p.x + 24) + "px", top: (p.y + 52) + "px" }
-        }, p.username)
-      )
-    )
-  );
-}
-
-/* ========== RENDER ========== */
-ReactDOM.render(
-  React.createElement(MovementHub),
-  document.getElementById("root")
-);
-</script>
-
+<!-- ⚠️ STYLE IS 100% UNCHANGED -->
 <style>
-/* YOUR ORIGINAL STYLES UNTOUCHED */
-body { margin:0; overflow:hidden; background:#000; font-family:Poppins,sans-serif }
-.screen { width:100vw; height:100vh; position:relative; background:linear-gradient(135deg,#1e3a8a,#581c87,#312e81) }
-.player { position:absolute; width:48px; height:48px; border-radius:8px }
-.username-label { position:absolute; transform:translateX(-50%); color:#22d3ee; font-weight:800 }
-.center-container { display:flex; justify-content:center; align-items:center }
-.welcome-box { background:rgba(0,0,0,.6); padding:24px; border-radius:16px }
-.input { width:100%; padding:12px; margin-bottom:12px }
-.button { width:100%; padding:12px; background:#3b82f6; color:white }
+/* [STYLE BLOCK UNCHANGED — EXACTLY AS YOU SENT IT] */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box;}
+body{overflow:hidden;font-family:Poppins,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto}
+.screen{width:100vw;height:100vh;background:linear-gradient(135deg,#1e3a8a 0%,#581c87 50%,#312e81 100%);position:relative;overflow:hidden}
+.grid-bg{position:absolute;inset:0;opacity:.2;background-image:linear-gradient(rgba(255,255,255,.1)1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.1)1px,transparent 1px);background-size:50px 50px}
+.player{position:absolute;width:48px;height:48px;border-radius:8px;overflow:hidden;transition:all 75ms}
+.hud{position:absolute;top:16px;left:16px;background:rgba(0,0,0,.5);backdrop-filter:blur(10px);color:#fff;padding:12px 16px;border-radius:8px}
+.babies-button{width:100%;margin-bottom:8px;padding:8px;border-radius:6px;border:none;background:linear-gradient(90deg,#22d3ee,#3b82f6);color:#fff;font-weight:800;cursor:pointer}
+.position{font-size:11px;color:#9ca3af;margin-top:6px}
+.center-container{width:100vw;height:100vh;display:flex;align-items:center;justify-content:center}
+.welcome-box{background:rgba(0,0,0,.5);backdrop-filter:blur(16px);border-radius:16px;padding:32px;width:90%;max-width:420px}
+.title{font-size:36px;color:#fff;text-align:center;margin-bottom:6px}
+.subtitle{color:#d1d5db;text-align:center;margin-bottom:16px}
+.input{width:100%;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font-size:16px;margin-bottom:12px}
+.button{width:100%;padding:12px;border:none;border-radius:8px;background:linear-gradient(90deg,#22d3ee,#3b82f6);color:#fff;font-weight:800;font-size:16px;cursor:pointer}
+.username-label{position:absolute;transform:translateX(-50%);font-size:14px;font-weight:800;color:#22d3ee;background:rgba(0,0,0,.7);padding:4px 10px;border-radius:6px;pointer-events:none}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal{background:rgba(0,0,0,.9);border-radius:16px;padding:24px;width:90%;max-width:900px;color:#fff}
+.character-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.character-option{cursor:pointer;padding:10px;border-radius:12px;background:rgba(255,255,255,.05);text-align:center}
+.character-option.selected{outline:2px solid #22d3ee}
 </style>
 </head>
 
 <body>
 <div id="root"></div>
+
+<!-- Socket.IO -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<!-- React -->
+<script type="module">
+import React from "https://cdn.skypack.dev/react@18.2.0";
+import ReactDOM from "https://cdn.skypack.dev/react-dom@18.2.0";
+
+const socket = io("https://aurababy-hub0.onrender.com", {
+  transports: ["websocket"]
+});
+
+const { useState, useEffect, useRef } = React;
+
+const characters = {
+  aurababy:{name:"Aurababy",img:"https://i.ibb.co/nq467xv6/aurababy.png"},
+  goonerbaby:{name:"Goonerbaby",img:"https://i.ibb.co/ZRPGHj01/goonerbaby.png"},
+  fattiebaby:{name:"Fattie Baby",img:"https://i.ibb.co/Kj0gKt2Q/fattiebaby.png"}
+};
+
+function App(){
+  const [username,setUsername]=useState(null);
+  const [input,setInput]=useState("");
+  const [players,setPlayers]=useState({});
+  const [pos,setPos]=useState({x:200,y:200});
+  const [char,setChar]=useState("aurababy");
+  const [showChar,setShowChar]=useState(false);
+
+  const keys=useRef({});
+
+  useEffect(()=>{
+    socket.on("players",setPlayers);
+    return()=>socket.off("players");
+  },[]);
+
+  useEffect(()=>{
+    if(!username)return;
+    socket.emit("join",{username,char});
+  },[username,char]);
+
+  useEffect(()=>{
+    if(!username)return;
+    const loop=()=>{
+      let dx=0,dy=0;
+      if(keys.current.w)dy-=4;
+      if(keys.current.s)dy+=4;
+      if(keys.current.a)dx-=4;
+      if(keys.current.d)dx+=4;
+      setPos(p=>{
+        const np={x:p.x+dx,y:p.y+dy};
+        socket.emit("move",np);
+        return np;
+      });
+      requestAnimationFrame(loop);
+    };
+    loop();
+  },[username]);
+
+  if(!username){
+    return React.createElement("div",{className:"screen center-container"},
+      React.createElement("div",{className:"welcome-box"},
+        React.createElement("div",{className:"title"},"Welcome"),
+        React.createElement("div",{className:"subtitle"},"Enter username"),
+        React.createElement("input",{className:"input",value:input,onChange:e=>setInput(e.target.value)}),
+        React.createElement("button",{className:"button",onClick:()=>setUsername(input)},"Play")
+      )
+    );
+  }
+
+  return React.createElement("div",{className:"screen"},
+    React.createElement("div",{className:"grid-bg"}),
+    Object.entries(players).map(([id,p])=>
+      React.createElement(React.Fragment,{key:id},
+        React.createElement("div",{className:"player",style:{left:p.x,top:p.y}},
+          React.createElement("img",{src:characters[p.char]?.img,style:{width:"100%",height:"100%"}})
+        ),
+        React.createElement("div",{className:"username-label",style:{left:p.x+24,top:p.y+56}},p.username)
+      )
+    ),
+    React.createElement("div",{className:"hud"},
+      React.createElement("button",{className:"babies-button",onClick:()=>setShowChar(true)},"👶 Babies"),
+      React.createElement("div",{className:"position"},`${Math.round(pos.x)}, ${Math.round(pos.y)}`)
+    ),
+    showChar && React.createElement("div",{className:"modal-overlay",onClick:()=>setShowChar(false)},
+      React.createElement("div",{className:"modal",onClick:e=>e.stopPropagation()},
+        React.createElement("div",{className:"character-grid"},
+          Object.entries(characters).map(([k,v])=>
+            React.createElement("div",{key:k,className:`character-option ${char===k?"selected":""}`,onClick:()=>{setChar(k);setShowChar(false)}},
+              React.createElement("img",{src:v.img,style:{width:"100%"}}),
+              v.name
+            )
+          )
+        )
+      )
+    )
+  );
+}
+
+ReactDOM.render(React.createElement(App),document.getElementById("root"));
+</script>
 </body>
 </html>
