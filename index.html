@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Movement Hub</title>
+
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://cdn.skypack.dev/react@18.2.0"></script>
+<script src="https://cdn.skypack.dev/react-dom@18.2.0"></script>
+
+<style>
+body{margin:0;overflow:hidden;font-family:sans-serif}
+.screen{width:100vw;height:100vh;background:linear-gradient(135deg,#1e3a8a,#581c87,#312e81);position:relative}
+.player{position:absolute;width:48px;height:48px}
+.username{position:absolute;background:#000a;color:#22d3ee;padding:4px 8px;border-radius:6px;font-weight:700;transform:translateX(-50%)}
+.chat{position:absolute;background:#000c;color:#fff;padding:6px 10px;border-radius:10px;font-size:13px;transform:translateX(-50%)}
+.hud{position:absolute;top:16px;left:16px;background:#0008;color:white;padding:12px;border-radius:8px}
+input{padding:6px;border-radius:6px;border:none}
+</style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="module">
+const {useState,useEffect,useRef} = React;
+
+const socket = io("http://localhost:3000"); // CHANGE WHEN DEPLOYED
+
+function App(){
+  const [username,setUsername]=useState(localStorage.getItem("username"));
+  const [input,setInput]=useState("");
+  const [players,setPlayers]=useState({});
+  const [chat,setChat]=useState({});
+  const keys=useRef({});
+  const pos=useRef({x:200,y:200});
+  const vel=useRef({x:0,y:0});
+
+  useEffect(()=>{
+    socket.on("state",setPlayers);
+    socket.on("chat",msg=>{
+      setChat(c=>({...c,[msg.id]:msg}));
+    });
+  },[]);
+
+  useEffect(()=>{
+    if(!username) return;
+    socket.emit("join",{username,character:"aurababy"});
+
+    const down=e=>keys.current[e.key]=true;
+    const up=e=>keys.current[e.key]=false;
+    window.addEventListener("keydown",down);
+    window.addEventListener("keyup",up);
+
+    const loop=()=>{
+      let dx=0,dy=0;
+      if(keys.current.w)dy--;
+      if(keys.current.s)dy++;
+      if(keys.current.a)dx--;
+      if(keys.current.d)dx++;
+      vel.current={x:dx*4,y:dy*4};
+      pos.current.x+=vel.current.x;
+      pos.current.y+=vel.current.y;
+      socket.emit("move",{...pos.current,...vel.current});
+      requestAnimationFrame(loop);
+    };
+    loop();
+  },[username]);
+
+  if(!username){
+    return React.createElement("div",{className:"screen"},
+      React.createElement("form",{style:{padding:40},onSubmit:e=>{
+        e.preventDefault();
+        localStorage.setItem("username",input);
+        setUsername(input);
+      }},
+        React.createElement("input",{value:input,onChange:e=>setInput(e.target.value),placeholder:"Username"}),
+        React.createElement("button",null,"Enter")
+      )
+    );
+  }
+
+  return React.createElement("div",{className:"screen"},
+    Object.values(players).map(p=>
+      React.createElement(React.Fragment,{key:p.id},
+        React.createElement("div",{className:"player",style:{left:p.x,top:p.y}},
+          React.createElement("img",{src:"https://i.ibb.co/nq467xv6/aurababy.png",width:48})
+        ),
+        React.createElement("div",{className:"username",style:{left:p.x+24,top:p.y+56}},p.username),
+        chat[p.id] && Date.now()-chat[p.id].time<4000 &&
+          React.createElement("div",{className:"chat",style:{left:p.x+24,top:p.y-10}},chat[p.id].text)
+      )
+    ),
+    React.createElement("div",{className:"hud"},
+      React.createElement("input",{placeholder:"Chat...",onKeyDown:e=>{
+        if(e.key==="Enter"){
+          socket.emit("chat",e.target.value);
+          e.target.value="";
+        }
+      }})
+    )
+  );
+}
+
+ReactDOM.render(React.createElement(App),root);
+</script>
+</body>
+</html>
