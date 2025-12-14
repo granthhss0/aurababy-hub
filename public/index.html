@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Movement Hub</title>
 
+<!-- React (UMD) -->
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<!-- Socket.IO -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <style>
@@ -21,7 +24,7 @@ body{overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Rob
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000}
 .modal{background:rgba(0,0,0,.9);border:2px solid rgba(34,211,238,.5);border-radius:16px;padding:32px;width:90%;max-width:700px}
 .modal-title{color:#22d3ee;font-size:28px;font-weight:bold;text-align:center;margin-bottom:24px}
-.character-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.character-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-height:60vh;overflow-y:auto}
 .character-option{background:rgba(255,255,255,.05);border:2px solid rgba(255,255,255,.2);border-radius:12px;padding:12px;cursor:pointer;text-align:center}
 .character-option.selected{border-color:#22d3ee;background:rgba(34,211,238,.2)}
 .character-image{width:100%;height:120px;object-fit:contain;margin-bottom:8px}
@@ -38,10 +41,12 @@ body{overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Rob
 <div id="root"></div>
 
 <script>
-const {useState,useEffect,useRef} = React;
+const { useState, useEffect, useRef } = React;
 
-/* 🔴 CHANGE THIS TO YOUR SOCKET SERVICE URL */
-const socket = io("https://aurababy-hub0.onrender.com/");
+/* ✅ BACKEND SOCKET — NOT FRONTEND */
+const socket = io("https://aurababy-hub0.onrender.com", {
+  transports: ["websocket", "polling"]
+});
 
 const characters = {
   aurababy:{name:"Aurababy",image:"https://i.ibb.co/nq467xv6/aurababy.png"},
@@ -64,12 +69,15 @@ function MovementHub(){
   const keys=useRef({});
 
   useEffect(()=>{
-    socket.on("state",setPlayers);
+    socket.on("state", setPlayers);
+    return ()=>socket.off("state");
   },[]);
 
   useEffect(()=>{
-    if(username) socket.emit("join",{username,character:selectedCharacter});
-  },[username,selectedCharacter]);
+    if(username){
+      socket.emit("join",{ username, character:selectedCharacter });
+    }
+  },[username, selectedCharacter]);
 
   useEffect(()=>{
     if(!username) return;
@@ -86,7 +94,7 @@ function MovementHub(){
       if(keys.current.d||keys.current.arrowright)dx++;
       pos.current.x+=dx*4;
       pos.current.y+=dy*4;
-      socket.emit("move",{x:pos.current.x,y:pos.current.y});
+      socket.emit("move",{ x:pos.current.x, y:pos.current.y });
       requestAnimationFrame(loop);
     };
     loop();
@@ -111,6 +119,7 @@ function MovementHub(){
 
   return React.createElement("div",{className:"screen"},
     React.createElement("div",{className:"grid-bg"}),
+
     Object.values(players).map(p=>
       React.createElement(React.Fragment,{key:p.id},
         React.createElement("div",{className:"player",style:{left:p.x,top:p.y}},
@@ -119,9 +128,11 @@ function MovementHub(){
         React.createElement("div",{className:"username-label",style:{left:p.x+24,top:p.y+58}},p.username)
       )
     ),
+
     React.createElement("div",{className:"hud"},
       React.createElement("button",{className:"babies-button",onClick:()=>setShowModal(true)},"👶 Babies")
     ),
+
     showModal&&React.createElement("div",{className:"modal-overlay",onClick:()=>setShowModal(false)},
       React.createElement("div",{className:"modal",onClick:e=>e.stopPropagation()},
         React.createElement("div",{className:"modal-title"},"Choose Your Character"),
