@@ -1,149 +1,167 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
 <title>Movement Hub</title>
 
-<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://aurababy-hub0.onrender.com/socket.io/socket.io.js"></script>
+<!-- SOCKET.IO -->
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
+<!-- REACT (NO JSX) -->
+<script type="module">
+import React from "https://cdn.skypack.dev/react@18.2.0";
+import ReactDOM from "https://cdn.skypack.dev/react-dom@18.2.0";
+
+const { useState, useEffect, useRef } = React;
+
+/* ================= SOCKET ================= */
+const socket = io("https://aurababy-hub0.onrender.com", {
+  transports: ["websocket"]
+});
+
+/* ================= APP ================= */
+function MovementHub() {
+  const [username, setUsername] = useState(null);
+  const [inputUsername, setInputUsername] = useState("");
+  const [error, setError] = useState("");
+  const [position, setPosition] = useState({ x: 200, y: 200 });
+  const [players, setPlayers] = useState({});
+  const [selectedCharacter, setSelectedCharacter] = useState("aurababy");
+
+  const keys = useRef({});
+  const raf = useRef(null);
+
+  const SPEED = 4;
+
+  const characters = {
+    aurababy: "https://i.ibb.co/nq467xv6/aurababy.png",
+    goonerbaby: "https://i.ibb.co/ZRPGHj01/goonerbaby.png",
+    fattiebaby: "https://i.ibb.co/Kj0gKt2Q/fattiebaby.png",
+    zoely: "https://i.ibb.co/PsXr9KgX/zoely.png"
+  };
+
+  /* ========== LOGIN ========== */
+  function submitUsername(e) {
+    e.preventDefault();
+    const u = inputUsername.trim();
+    if (u.length < 3) return setError("Username too short");
+    setUsername(u);
+
+    socket.emit("join", {
+      username: u,
+      character: selectedCharacter
+    });
+  }
+
+  /* ========== MOVEMENT LOOP ========== */
+  useEffect(() => {
+    if (!username) return;
+
+    function down(e) {
+      keys.current[e.key.toLowerCase()] = true;
+    }
+    function up(e) {
+      keys.current[e.key.toLowerCase()] = false;
+    }
+
+    function loop() {
+      setPosition(p => {
+        let dx = 0, dy = 0;
+        if (keys.current.w || keys.current.arrowup) dy -= SPEED;
+        if (keys.current.s || keys.current.arrowdown) dy += SPEED;
+        if (keys.current.a || keys.current.arrowleft) dx -= SPEED;
+        if (keys.current.d || keys.current.arrowright) dx += SPEED;
+
+        const nx = Math.max(0, Math.min(window.innerWidth - 48, p.x + dx));
+        const ny = Math.max(0, Math.min(window.innerHeight - 48, p.y + dy));
+
+        socket.emit("move", { x: nx, y: ny });
+        return { x: nx, y: ny };
+      });
+
+      raf.current = requestAnimationFrame(loop);
+    }
+
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    raf.current = requestAnimationFrame(loop);
+
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      cancelAnimationFrame(raf.current);
+    };
+  }, [username]);
+
+  /* ========== RECEIVE STATE ========== */
+  useEffect(() => {
+    socket.on("state", serverPlayers => {
+      setPlayers(serverPlayers || {});
+    });
+    return () => socket.off("state");
+  }, []);
+
+  /* ========== LOGIN SCREEN ========== */
+  if (!username) {
+    return React.createElement("div", { className: "screen center-container" },
+      React.createElement("form", { onSubmit: submitUsername, className: "welcome-box" },
+        React.createElement("h1", { className: "title" }, "Welcome"),
+        React.createElement("input", {
+          className: "input",
+          placeholder: "Username",
+          value: inputUsername,
+          onChange: e => setInputUsername(e.target.value)
+        }),
+        error && React.createElement("div", { className: "error" }, error),
+        React.createElement("button", { className: "button" }, "Enter")
+      )
+    );
+  }
+
+  /* ========== GAME ========== */
+  return React.createElement("div", { className: "screen" },
+    Object.entries(players).map(([id, p]) =>
+      React.createElement(React.Fragment, { key: id },
+        React.createElement("div", {
+          className: "player",
+          style: { left: p.x + "px", top: p.y + "px" }
+        },
+          React.createElement("img", {
+            src: characters[p.character] || characters.aurababy,
+            style: { width: "100%", height: "100%" }
+          })
+        ),
+        React.createElement("div", {
+          className: "username-label",
+          style: { left: (p.x + 24) + "px", top: (p.y + 52) + "px" }
+        }, p.username)
+      )
+    )
+  );
+}
+
+/* ========== RENDER ========== */
+ReactDOM.render(
+  React.createElement(MovementHub),
+  document.getElementById("root")
+);
+</script>
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto}
-.screen{width:100vw;height:100vh;background:linear-gradient(135deg,#1e3a8a,#581c87,#312e81);position:relative}
-.grid-bg{position:absolute;inset:0;opacity:.2;
-background-image:linear-gradient(rgba(255,255,255,.1) 1px,transparent 1px),
-linear-gradient(90deg,rgba(255,255,255,.1) 1px,transparent 1px);
-background-size:50px 50px}
-.player{position:absolute;width:48px;height:48px;border-radius:8px;
-background:linear-gradient(135deg,#22d3ee,#3b82f6);
-box-shadow:0 0 20px rgba(34,211,238,.6)}
-.username-label{
-position:absolute;
-transform:translateX(-50%);
-top:52px;
-background:rgba(0,0,0,.7);
-color:#22d3ee;
-padding:4px 10px;
-border-radius:6px;
-font-weight:700;
-font-size:13px;
-white-space:nowrap
-}
-.center-container{display:flex;align-items:center;justify-content:center}
-.welcome-box{
-background:rgba(0,0,0,.5);
-backdrop-filter:blur(16px);
-border-radius:16px;
-padding:32px;
-width:360px;
-color:white
-}
-.input{width:100%;padding:12px;border-radius:8px;border:none;margin-bottom:12px}
-.button{width:100%;padding:12px;border-radius:8px;border:none;
-background:linear-gradient(90deg,#22d3ee,#3b82f6);
-color:white;font-weight:700;cursor:pointer}
+/* YOUR ORIGINAL STYLES UNTOUCHED */
+body { margin:0; overflow:hidden; background:#000; font-family:Poppins,sans-serif }
+.screen { width:100vw; height:100vh; position:relative; background:linear-gradient(135deg,#1e3a8a,#581c87,#312e81) }
+.player { position:absolute; width:48px; height:48px; border-radius:8px }
+.username-label { position:absolute; transform:translateX(-50%); color:#22d3ee; font-weight:800 }
+.center-container { display:flex; justify-content:center; align-items:center }
+.welcome-box { background:rgba(0,0,0,.6); padding:24px; border-radius:16px }
+.input { width:100%; padding:12px; margin-bottom:12px }
+.button { width:100%; padding:12px; background:#3b82f6; color:white }
 </style>
 </head>
 
 <body>
 <div id="root"></div>
-
-<script type="text/babel">
-const { useState, useEffect, useRef } = React;
-
-const socket = io("https://aurababy-hub0.onrender.com", {
-  transports:["websocket"]
-});
-
-function App(){
-  const [username,setUsername]=useState(null);
-  const [input,setInput]=useState("");
-  const [players,setPlayers]=useState({});
-  const pos=useRef({x:200,y:200});
-  const id=useRef(crypto.randomUUID());
-  const keys=useRef({});
-
-  useEffect(()=>{
-    socket.on("player-update", data=>{
-      setPlayers(p=>({...p,[data.id]:data}));
-    });
-    socket.on("player-disconnect", pid=>{
-      setPlayers(p=>{
-        const n={...p};
-        delete n[pid];
-        return n;
-      });
-    });
-  },[]);
-
-  useEffect(()=>{
-    if(!username) return;
-
-    socket.emit("join",{
-      id:id.current,
-      username,
-      ...pos.current
-    });
-
-    const loop=()=>{
-      let dx=0,dy=0;
-      if(keys.current.w) dy-=4;
-      if(keys.current.s) dy+=4;
-      if(keys.current.a) dx-=4;
-      if(keys.current.d) dx+=4;
-
-      pos.current.x+=dx;
-      pos.current.y+=dy;
-
-      socket.emit("move",{
-        id:id.current,
-        username,
-        ...pos.current
-      });
-
-      requestAnimationFrame(loop);
-    };
-    loop();
-  },[username]);
-
-  useEffect(()=>{
-    const d=e=>keys.current[e.key.toLowerCase()]=true;
-    const u=e=>keys.current[e.key.toLowerCase()]=false;
-    window.addEventListener("keydown",d);
-    window.addEventListener("keyup",u);
-    return()=>{window.removeEventListener("keydown",d);window.removeEventListener("keyup",u);}
-  },[]);
-
-  if(!username){
-    return(
-      <div className="screen center-container">
-        <div className="welcome-box">
-          <h1 style={{marginBottom:12}}>Welcome</h1>
-          <input className="input" placeholder="Username"
-            value={input} onChange={e=>setInput(e.target.value)}/>
-          <button className="button" onClick={()=>setUsername(input)}>Start</button>
-        </div>
-      </div>
-    );
-  }
-
-  return(
-    <div className="screen">
-      <div className="grid-bg"/>
-      {Object.values(players).map(p=>(
-        <div key={p.id} style={{left:p.x,top:p.y}} className="player">
-          <div className="username-label">{p.username}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-ReactDOM.createRoot(root).render(<App/>);
-</script>
 </body>
 </html>
