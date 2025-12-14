@@ -11,7 +11,7 @@ const io = new Server(server, {
 const players = {};
 
 io.on("connection", socket => {
-  console.log("join", socket.id);
+  socket.emit("state", players);
 
   socket.on("join", data => {
     players[socket.id] = {
@@ -50,7 +50,6 @@ io.on("connection", socket => {
   });
 });
 
-// Broadcast loop (20 ticks/sec)
 setInterval(() => {
   io.emit("state", players);
 }, 50);
