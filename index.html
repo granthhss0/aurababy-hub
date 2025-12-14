@@ -1,25 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Movement Hub</title>
 
-<!-- React (UMD – NO MODULES) -->
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-<!-- Socket.IO -->
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 
 <style>
-body{margin:0;overflow:hidden;font-family:sans-serif}
+body{margin:0;overflow:hidden;font-family:system-ui}
 .screen{width:100vw;height:100vh;background:linear-gradient(135deg,#1e3a8a,#581c87,#312e81);position:relative}
 .player{position:absolute;width:48px;height:48px}
 .username{position:absolute;background:#000a;color:#22d3ee;padding:4px 8px;border-radius:6px;font-weight:700;transform:translateX(-50%)}
 .chat{position:absolute;background:#000c;color:#fff;padding:6px 10px;border-radius:10px;font-size:13px;transform:translateX(-50%)}
 .hud{position:absolute;top:16px;left:16px;background:#0008;color:white;padding:12px;border-radius:8px}
-input{padding:6px;border-radius:6px;border:none}
+input,button{padding:8px;border-radius:6px;border:none}
+.modal{position:fixed;inset:0;background:#000c;display:flex;align-items:center;justify-content:center}
+.modal-box{background:#111;padding:24px;border-radius:12px;color:white}
+.char{cursor:pointer;margin:8px;padding:8px;border:2px solid #444;border-radius:8px}
+.char.selected{border-color:#22d3ee}
 </style>
 </head>
 
@@ -27,41 +28,44 @@ input{padding:6px;border-radius:6px;border:none}
 <div id="root"></div>
 
 <script>
-const { useState, useEffect, useRef } = React;
-const socket = io("http://localhost:3000"); // CHANGE WHEN DEPLOYED
+const {useState,useEffect,useRef} = React;
+
+// 🔴 CHANGE THIS IF SERVER IS DEPLOYED
+const socket = io("http://localhost:3000");
+
+const characters = {
+  aurababy:"https://i.ibb.co/nq467xv6/aurababy.png",
+  goonerbaby:"https://i.ibb.co/ZRPGHj01/goonerbaby.png"
+};
 
 function App(){
   const [username,setUsername]=useState(localStorage.getItem("username"));
   const [input,setInput]=useState("");
   const [players,setPlayers]=useState({});
-  const [chats,setChats]=useState({});
+  const [chat,setChat]=useState({});
+  const [character,setCharacter]=useState(null);
 
-  const keys=useRef({});
   const pos=useRef({x:200,y:200});
   const vel=useRef({x:0,y:0});
+  const keys=useRef({});
 
-  // Socket listeners
   useEffect(()=>{
-    socket.on("state",state=>{
-      setPlayers({...state});
-    });
+    socket.on("state",setPlayers);
     socket.on("chat",msg=>{
-      setChats(c=>({...c,[msg.id]:msg}));
+      setChat(c=>({...c,[msg.id]:msg}));
     });
   },[]);
 
-  // Join + movement loop
   useEffect(()=>{
-    if(!username) return;
+    if(!username || !character) return;
 
-    socket.emit("join",{username,character:"aurababy"});
+    socket.emit("join",{username,character});
 
     const down=e=>keys.current[e.key]=true;
     const up=e=>keys.current[e.key]=false;
     window.addEventListener("keydown",down);
     window.addEventListener("keyup",up);
 
-    let raf;
     const loop=()=>{
       let dx=0,dy=0;
       if(keys.current.w)dy--;
@@ -72,14 +76,11 @@ function App(){
       pos.current.x+=vel.current.x;
       pos.current.y+=vel.current.y;
       socket.emit("move",{...pos.current,...vel.current});
-      raf=requestAnimationFrame(loop);
+      requestAnimationFrame(loop);
     };
-    raf=requestAnimationFrame(loop);
+    loop();
+  },[username,character]);
 
-    return()=>cancelAnimationFrame(raf);
-  },[username]);
-
-  // Login screen
   if(!username){
     return React.createElement("div",{className:"screen"},
       React.createElement("form",{style:{padding:40},onSubmit:e=>{
@@ -93,16 +94,28 @@ function App(){
     );
   }
 
-  // Game screen
+  if(!character){
+    return React.createElement("div",{className:"modal"},
+      React.createElement("div",{className:"modal-box"},
+        React.createElement("h3",null,"Choose Character"),
+        Object.entries(characters).map(([k,img])=>
+          React.createElement("div",{key:k,className:`char ${character===k?"selected":""}`,onClick:()=>setCharacter(k)},
+            React.createElement("img",{src:img,width:64})
+          )
+        )
+      )
+    );
+  }
+
   return React.createElement("div",{className:"screen"},
     Object.values(players).map(p=>
       React.createElement(React.Fragment,{key:p.id},
         React.createElement("div",{className:"player",style:{left:p.x,top:p.y}},
-          React.createElement("img",{src:"https://i.ibb.co/nq467xv6/aurababy.png",width:48})
+          React.createElement("img",{src:characters[p.character],width:48})
         ),
         React.createElement("div",{className:"username",style:{left:p.x+24,top:p.y+56}},p.username),
-        chats[p.id] && Date.now()-chats[p.id].time<4000 &&
-          React.createElement("div",{className:"chat",style:{left:p.x+24,top:p.y-10}},chats[p.id].text)
+        chat[p.id] && Date.now()-chat[p.id].time<4000 &&
+          React.createElement("div",{className:"chat",style:{left:p.x+24,top:p.y-10}},chat[p.id].text)
       )
     ),
     React.createElement("div",{className:"hud"},
@@ -116,8 +129,7 @@ function App(){
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root"))
-  .render(React.createElement(App));
+ReactDOM.createRoot(root).render(React.createElement(App));
 </script>
 </body>
 </html>
